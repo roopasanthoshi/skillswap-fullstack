@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               Int       @id @default(autoincrement())
+  name             String
+  email            String    @unique
+  password         String
+  bio              String?
+  avatarUrl        String?   @db.LongText
+  role             Role      @default(USER)
+  status           Status    @default(OFFLINE)
+  
+  knownSkills      UserSkill[]
+  learningSkills   UserLearning[]
+  
+  sentRequests     MatchRequest[] @relation("SentRequests")
+  receivedRequests MatchRequest[] @relation("ReceivedRequests")
+  
+  reviewsGiven     Review[] @relation("Reviewer")
+  reviewsReceived  Review[] @relation("Reviewee")
+  
+  messagesSent     Message[] @relation("Sender")
+  messagesReceived Message[] @relation("Receiver")
+  
+  bookmarks        Bookmark[]
+  
+  notifications    Notification[]
+  
+  swapConnections1 SwapConnection[] @relation("SwapUser1")
+  swapConnections2 SwapConnection[] @relation("SwapUser2")
+  
+  schedules        SessionSchedule[]
+  
+  bookingsRequested SessionBooking[] @relation("BookingRequester")
+  bookingsProvided  SessionBooking[] @relation("BookingProvider")
+  
+  recentlyViewed   RecentlyViewed[] @relation("Viewer")
+  viewedBy         RecentlyViewed[] @relation("ViewedProfile")
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Status {
+  ONLINE
+  OFFLINE
+  BUSY
+}
+
+model Skill {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  category    String
+  
+  usersKnown     UserSkill[]
+  usersLearning  UserLearning[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserSkill {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  skillId     Int
+  proficiency Proficiency @default(INTERMEDIATE)
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([userId, skillId])
+}
+
+enum Proficiency {
+  BEGINNER
+  INTERMEDIATE
+  EXPERT
+}
+
+model UserLearning {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  skillId     Int
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([userId, skillId])
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model MatchRequest {
+  id         Int           @id @default(autoincrement())
+  senderId   Int
+  receiverId Int
+  status     RequestStatus @default(PENDING)
+  message    String?
+  
+  sender     User          @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User          @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  
+  @@unique([senderId, receiverId])
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  reviewerId Int
+  revieweeId Int
+  rating     Int      // 1 to 5
+  comment    String?
+  
+  reviewer   User     @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee   User     @relation("Reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+  
+  createdAt  DateTime @default(now())
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  senderId   Int
+  receiverId Int
+  content    String
+  isRead     Boolean  @default(false)
+  
+  sender     User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  createdAt  DateTime @default(now())
+}
+
+model Bookmark {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  savedUserId Int
+  
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt  DateTime @default(now())
+  
+  @@unique([userId, savedUserId])
+}
+
+model Notification {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  type       String   // e.g., 'REQUEST', 'MESSAGE', 'SYSTEM'
+  content    String
+  isRead     Boolean  @default(false)
+  link       String?
+  
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt  DateTime @default(now())
+}
+
+model RecentlyViewed {
+  id         Int      @id @default(autoincrement())
+  viewerId   Int
+  viewedId   Int
+  
+  viewer     User     @relation("Viewer", fields: [viewerId], references: [id], onDelete: Cascade)
+  viewed     User     @relation("ViewedProfile", fields: [viewedId], references: [id], onDelete: Cascade)
+  
+  viewedAt   DateTime @default(now())
+  
+  @@unique([viewerId, viewedId])
+}
+
+model SwapConnection {
+  id         Int      @id @default(autoincrement())
+  user1Id    Int
+  user2Id    Int
+  status     ConnectionStatus @default(ACTIVE)
+  createdAt  DateTime @default(now())
+
+  user1      User     @relation("SwapUser1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2      User     @relation("SwapUser2", fields: [user2Id], references: [id], onDelete: Cascade)
+
+  @@unique([user1Id, user2Id])
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model SessionSchedule {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  dayOfWeek Int      // 0-6 (Sun-Sat)
+  startTime String   // e.g., "14:00"
+  endTime   String   // e.g., "15:00"
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SessionBooking {
+  id          Int      @id @default(autoincrement())
+  requesterId Int
+  providerId  Int
+  scheduledAt DateTime // Exact Date and Time
+  duration    Int      // minutes
+  status      BookingStatus @default(PENDING)
+  notes       String?
+
+  requester   User     @relation("BookingRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  provider    User     @relation("BookingProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}

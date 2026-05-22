@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../../frontend/frontend/dist"
+		},
+		{
+			"path": "../../../frontend/frontend/public"
+		},
+		{
+			"path": "../../../frontend/frontend/src"
+		}
+	]
+}
